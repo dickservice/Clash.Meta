@@ -499,11 +499,10 @@ func New(options LC.Tun, tunnel C.Tunnel, additions ...inbound.Addition) (l *Lis
 		return
 	}
 
-	err = tunStack.Start()
+	err = l.startStack(tunStack)
 	if err != nil {
 		return
 	}
-	l.tunStack = tunStack
 
 	if l.autoRedirect != nil {
 		if len(l.options.RouteAddressSet) > 0 && len(l.routeAddressSet) == 0 {
@@ -657,6 +656,17 @@ func parseRange[T constraints.Integer](uidRanges []ranges.Range[T], rangeList []
 		uidRanges = append(uidRanges, ranges.New(T(start), T(end)))
 	}
 	return uidRanges, nil
+}
+
+// Own the stack before Start: a failed Start may already have created sockets
+// and workers. New's deferred Listener.Close must see that partial stack.
+func (l *Listener) startStack(stack tun.Stack) error {
+	l.tunStack = stack
+	if err := stack.Start(); err != nil {
+		l.tunStack = stackAfterStartFailure(stack)
+		return err
+	}
+	return nil
 }
 
 func (l *Listener) Close() error {

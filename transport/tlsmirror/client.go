@@ -73,7 +73,7 @@ func Dial(ctx context.Context, rawConn net.Conn, cfg ClientConfig) (*Conn, error
 	}
 
 	var carrierTLS net.Conn
-	if clientFingerprint, ok := tlsC.GetFingerprint(cfg.ClientFingerprint); ok {
+	if clientFingerprint, ok := tlsC.GetFingerprintWithoutGlobal(cfg.ClientFingerprint); ok {
 		uConfig := tlsC.UConfig(tlsConfig)
 		if cfg.ECH != nil {
 			err = cfg.ECH.ClientHandleUTLS(ctx, uConfig)

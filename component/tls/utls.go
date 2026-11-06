@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"reflect"
+	"sync/atomic"
 	"unsafe"
 
 	"github.com/metacubex/mihomo/common/once"
@@ -40,6 +41,15 @@ func NewListener(inner net.Listener, config *Config) net.Listener {
 }
 
 func GetFingerprint(clientFingerprint string) (UClientHelloID, bool) {
+	if clientFingerprint == "" {
+		clientFingerprint = GetGlobalFingerprint()
+	}
+	return GetFingerprintWithoutGlobal(clientFingerprint)
+}
+
+// GetFingerprintWithoutGlobal resolves only explicit transport settings. Newer
+// protocols without historical global-default support retain their local semantics.
+func GetFingerprintWithoutGlobal(clientFingerprint string) (UClientHelloID, bool) {
 	if len(clientFingerprint) == 0 || clientFingerprint == "none" {
 		return UClientHelloID{}, false
 	}
@@ -315,4 +325,26 @@ func GetTLSConnectionState(conn net.Conn) (tlsState tls.ConnectionState) {
 		return tlsConnectionState(state)
 	}
 	return
+}
+
+// globalFingerprint holds an immutable string snapshot. A nil pointer means the
+// unset (empty) default, so reads are safe even before the first update.
+var globalFingerprint atomic.Pointer[string]
+
+// SetGlobalFingerprint sets the fallback ClientHello profile for empty local
+// client-fingerprint values. Passing an empty string clears the fallback.
+func SetGlobalFingerprint(fingerprint string) {
+	if fingerprint == "" {
+		globalFingerprint.Store(nil)
+		return
+	}
+	globalFingerprint.Store(&fingerprint)
+}
+
+// GetGlobalFingerprint returns one complete snapshot of the current fallback.
+func GetGlobalFingerprint() string {
+	if fingerprint := globalFingerprint.Load(); fingerprint != nil {
+		return *fingerprint
+	}
+	return ""
 }

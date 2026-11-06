@@ -36,7 +36,7 @@ const (
 )
 
 func newUTLSClient(ctx context.Context, conn net.Conn, config *ClientConfig) (net.Conn, bool, error) {
-	fingerprint, ok := tlsC.GetFingerprint(config.ClientFingerprint)
+	fingerprint, ok := tlsC.GetFingerprintWithoutGlobal(config.ClientFingerprint)
 	if !ok {
 		return nil, false, nil
 	}
